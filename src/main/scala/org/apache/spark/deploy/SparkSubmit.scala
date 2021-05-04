@@ -77,15 +77,18 @@ private[spark] class SparkSubmit extends Logging {
   import DependencyUtils._
   import SparkSubmit._
 
+  // 执行提交
   def doSubmit(args: Array[String]): Unit = {
     // Initialize logging if it hasn't been done yet. Keep track of whether logging needs to
     // be reset before the application starts.
     val uninitLog = initializeLogIfNecessary(true, silent = true)
 
+    // 解析参数
     val appArgs = parseArguments(args)
     if (appArgs.verbose) {
       logInfo(appArgs.toString)
     }
+    // 判断参数的动作类型
     appArgs.action match {
       case SparkSubmitAction.SUBMIT => submit(appArgs, uninitLog)
       case SparkSubmitAction.KILL => kill(appArgs)
@@ -94,6 +97,7 @@ private[spark] class SparkSubmit extends Logging {
     }
   }
 
+  // 执行提交
   protected def parseArguments(args: Array[String]): SparkSubmitArguments = {
     new SparkSubmitArguments(args)
   }
@@ -1005,6 +1009,13 @@ object SparkSubmit extends CommandLineUtils with Logging {
   private[deploy] val KUBERNETES_CLUSTER_SUBMIT_CLASS =
     "org.apache.spark.deploy.k8s.submit.KubernetesClientApplication"
 
+  // 提交入口
+  // bin/spark-submit \
+  // --class org.apache.spark.examples.SparkPi \
+  // --master yarn \
+  // --deploy-mode cluster \
+  // ./examples/jars/spark-examples_2.12-3.1.1.jar \
+  // 10
   override def main(args: Array[String]): Unit = {
     val submit = new SparkSubmit() {
       self =>
@@ -1025,8 +1036,10 @@ object SparkSubmit extends CommandLineUtils with Logging {
 
       override protected def logError(msg: => String): Unit = printMessage(s"Error: $msg")
 
+      // 执行提交
       override def doSubmit(args: Array[String]): Unit = {
         try {
+          // 执行提交
           super.doSubmit(args)
         } catch {
           case e: SparkUserAppException =>
@@ -1036,6 +1049,13 @@ object SparkSubmit extends CommandLineUtils with Logging {
 
     }
 
+    // 执行提交
+    // bin/spark-submit \
+    // --class org.apache.spark.examples.SparkPi \
+    // --master yarn \
+    // --deploy-mode cluster \
+    // ./examples/jars/spark-examples_2.12-3.1.1.jar \
+    // 10
     submit.doSubmit(args)
   }
 
