@@ -71,7 +71,7 @@ private[spark] class Client(
   import Client._
   import YarnSparkHadoopUtil._
 
-  // yarn-cluster 模式下使用 yarnClient 属性, 表示 Spark 连接到 YARN 的客户端, 实现的对象为 YarnClient - YarnClientImpl
+  // yarn-cluster 模式下使用 yarnClient 属性 (YARN 客户端), 实现为 YarnClient - YarnClientImpl
   private val yarnClient = YarnClient.createYarnClient
   private val hadoopConf = new YarnConfiguration(SparkHadoopUtil.newConfiguration(sparkConf))
 
@@ -1262,8 +1262,9 @@ private[spark] class Client(
    * 否则, 客户端进程将在提交后退出.
    * 如果应用程序以失败, 中止或未定义状态结束, 则抛出适当的 SparkException.
    */
+  // 提交并启动应用程序到 YARN 集群
   def run(): Unit = {
-    // 提交应用程序到 YARN 集群, 返回全局 YARN 应用 id:
+    // 提交并启动应用程序到 YARN 集群, 返回全局 YARN 应用 id:
     // step 1. 启动 YarnClientImpl (YARN 客户端)
     // step 2. 通过 YARN 的 ResourceManager 要创建一个应用程序
     // step 3. 创建容器的启动环境和提交环境
@@ -1676,8 +1677,8 @@ private[spark] class YarnClusterApplication extends SparkApplication {
     conf.remove(FILES)
     conf.remove(ARCHIVES)
 
-    // 创建 Client, 其中属性 yarnClient 为 YarnClientImpl
-    // run() 方法
+    // 创建 Client, 其中属性 yarnClient (YARN 客户端) 的实现为 YarnClientImpl
+    // run() 方法: 提交并启动应用程序到 YARN 集群
     new Client(new ClientArguments(args), conf, null).run()
   }
 
