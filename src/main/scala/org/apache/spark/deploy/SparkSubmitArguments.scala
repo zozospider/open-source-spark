@@ -39,6 +39,7 @@ import org.apache.spark.util.Utils
  * Parses and encapsulates arguments from the spark-submit script.
  * The env argument is used for testing.
  */
+// 解析参数
 private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, String] = sys.env)
   extends SparkSubmitArgumentsParser with Logging {
   var master: String = null
@@ -105,6 +106,7 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
   }
 
   // Set parameters from command line arguments
+  // 解析参数
   parse(args.asJava)
 
   // Populate `sparkProperties` map from properties file
@@ -225,6 +227,7 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
     }
 
     // Action should be SUBMIT unless otherwise specified
+    // 除非另有说明, 否则应为 SUBMIT 操作
     action = Option(action).getOrElse(SUBMIT)
   }
 
@@ -334,12 +337,15 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
       case NAME =>
         name = value
 
+      // --master yarn
       case MASTER =>
         master = value
 
+      // --class org.apache.spark.examples.SparkPi
       case CLASS =>
         mainClass = value
 
+      // --deploy-mode cluster
       case DEPLOY_MODE =>
         if (value != "client" && value != "cluster") {
           error("--deploy-mode must be either \"client\" or \"cluster\"")

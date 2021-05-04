@@ -135,6 +135,7 @@ class SparkSubmitOptionParser {
      *
      * @throws IllegalArgumentException If an error is found during parsing.
      */
+    // 解析参数
     protected final void parse(List<String> args) {
         Pattern eqSeparatedOpt = Pattern.compile("(--[^=]+)=(.+)");
 
