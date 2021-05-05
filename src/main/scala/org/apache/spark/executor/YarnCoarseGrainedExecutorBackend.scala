@@ -30,7 +30,13 @@ import org.apache.spark.util.YarnContainerInfoHelper
  * Custom implementation of CoarseGrainedExecutorBackend for YARN resource manager.
  * This class extracts executor log URLs and executor attributes from system environment which
  * properties are available for container being set via YARN.
+ *
+ * YARN 资源管理器的 CoarseGrainedExecutorBackend 的自定义实现.
+ * 此类从系统环境中提取执行程序日志 URL 和执行程序属性, 这些属性可用于通过 YARN 设置的容器.
  */
+// YarnCoarseGrainedExecutorBackend (Executor): YARN 粗粒度 Executor 后端
+// Backend (后端)
+// 继承 CoarseGrainedExecutorBackend -> IsolatedRpcEndpoint -> RpcEndpoint, 具有生命周期: constructor -> onStart -> receive* -> onStop
 private[spark] class YarnCoarseGrainedExecutorBackend(
                                                        rpcEnv: RpcEnv,
                                                        driverUrl: String,
@@ -69,7 +75,10 @@ private[spark] class YarnCoarseGrainedExecutorBackend(
 
 private[spark] object YarnCoarseGrainedExecutorBackend extends Logging {
 
+  // 进程入口 (由 ApplicationMaster 中的 ExecutorRunnable 启动)
   def main(args: Array[String]): Unit = {
+
+    // createFn: CoarseGrainedExecutorBackend (Executor) 对象
     val createFn: (RpcEnv, CoarseGrainedExecutorBackend.Arguments, SparkEnv, ResourceProfile) =>
       CoarseGrainedExecutorBackend = { case (rpcEnv, arguments, env, resourceProfile) =>
       new YarnCoarseGrainedExecutorBackend(rpcEnv, arguments.driverUrl, arguments.executorId,
@@ -78,7 +87,10 @@ private[spark] object YarnCoarseGrainedExecutorBackend extends Logging {
     }
     val backendArgs = CoarseGrainedExecutorBackend.parseArguments(args,
       this.getClass.getCanonicalName.stripSuffix("$"))
+
+    // 调用父类 CoarseGrainedExecutorBackend 的 run() 方法
     CoarseGrainedExecutorBackend.run(backendArgs, createFn)
+
     System.exit(0)
   }
 
