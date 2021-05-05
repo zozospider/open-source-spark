@@ -175,7 +175,7 @@ private[spark] class Client(
   // 提交应用程序到 YARN 集群, 返回全局 YARN 应用 id:
   // step 1. 启动 YarnClientImpl (YARN 客户端)
   // step 2. 通过 YARN 的 ResourceManager 要创建一个应用程序
-  // step 3. 创建容器的启动环境和提交环境
+  // step 3. 创建容器的启动环境和提交环境, 集群模式: /bin/java org.apache.spark.deploy.yarn.ApplicationMaster
   // step 4. 提交并监控应用程序
   def submitApplication(): ApplicationId = {
     ResourceRequestHelper.validateResources(sparkConf)
@@ -213,7 +213,7 @@ private[spark] class Client(
       verifyClusterResources(newAppResponse)
 
       // Set up the appropriate contexts to launch our AM
-      // 设置适当的上下文以启动我们的 AM
+      // 设置适当的上下文以启动我们的 ApplicationMaster
       // step 3. 创建容器的启动环境和提交环境
       // 封装指令, 核心命令如下:
       //             集群模式: /bin/java org.apache.spark.deploy.yarn.ApplicationMaster
@@ -1267,7 +1267,7 @@ private[spark] class Client(
     // 提交并启动应用程序到 YARN 集群, 返回全局 YARN 应用 id:
     // step 1. 启动 YarnClientImpl (YARN 客户端)
     // step 2. 通过 YARN 的 ResourceManager 要创建一个应用程序
-    // step 3. 创建容器的启动环境和提交环境
+    // step 3. 创建容器的启动环境和提交环境, 集群模式: /bin/java org.apache.spark.deploy.yarn.ApplicationMaster
     // step 4. 提交并监控应用程序
     this.appId = submitApplication()
     if (!launcherBackend.isConnected() && fireAndForget) {
