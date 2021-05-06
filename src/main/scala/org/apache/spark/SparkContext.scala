@@ -640,6 +640,8 @@ class SparkContext(config: SparkConf) extends Logging {
     postApplicationStart()
 
     // Post init
+    // 在系统成功初始化之后调用 (通常在 SparkContext 中).
+    // YARN 使用它来引导基于首选位置的资源分配, 等待 Executor 注册等.
     _taskScheduler.postStartHook()
     if (isLocal) {
       _env.metricsSystem.registerSource(Executor.executorSourceLocalModeOnly)

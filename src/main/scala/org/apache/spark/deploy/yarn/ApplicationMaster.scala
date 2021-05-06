@@ -415,8 +415,10 @@ private[spark] class ApplicationMaster(
     }
   }
 
+  // 唤起 TaskScheduler.postStartHook() - YarnClusterScheduler.postStartHook() - TaskSchedulerImpl.waitBackendReady() 的等待线程
   private def resumeDriver(): Unit = {
     // When initialization in runDriver happened the user class thread has to be resumed.
+    // 当 runDriver 中的初始化发生时, 必须恢复用户类线程.
     sparkContextPromise.synchronized {
       sparkContextPromise.notify()
     }
@@ -547,6 +549,9 @@ private[spark] class ApplicationMaster(
         // if the user app did not create a SparkContext.
         throw new IllegalStateException("User did not initialize spark context!")
       }
+
+      // 让 Driver 继续执行, 即 WordCount 继续往下执行 SparkContext 后的逻辑
+      // 唤起 TaskScheduler.postStartHook() - YarnClusterScheduler.postStartHook() - TaskSchedulerImpl.waitBackendReady() 的等待线程
       resumeDriver()
       userClassThread.join()
     } catch {

@@ -24,7 +24,17 @@ import org.apache.spark.storage.BlockManagerId
  * A backend interface for scheduling systems that allows plugging in different ones under
  * TaskSchedulerImpl. We assume a Mesos-like model where the application gets resource offers as
  * machines become available and can launch tasks on them.
+ *
+ * 调度系统的后端接口, 允许在 TaskSchedulerImpl 下插入不同的接口.
+ * 我们假设一个类似 Mesos 的模型, 其中当机器可用时, 应用程序将获得资源提供, 并可以在机器上启动任务.
  */
+// 通信后端, 其实现有:
+// - LocalSchedulerBackend - local 模式
+// - CoarseGrainedSchedulerBackend - 集群模式
+//   - StandaloneSchedulerBackend - Standalone 集群模式
+//   - YarnSchedulerBackend - YARN 集群模式
+//     - YarnClusterSchedulerBackend - YARN Cluster 集群模式
+//     - YarnClientSchedulerBackend - YARN Client 集群模式
 private[spark] trait SchedulerBackend {
   private val appId = "spark-application-" + System.currentTimeMillis
 

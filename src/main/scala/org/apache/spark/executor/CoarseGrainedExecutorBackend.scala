@@ -83,6 +83,7 @@ private[spark] class CoarseGrainedExecutorBackend(
   // OnStart(): RpcEndpoint 生命周期的一个阶段 (完整生命周期为: constructor -> onStart -> receive* -> onStop)
   // 在 RpcEndpoint 开始处理任何消息之前调用.
   // 得到 driver, 并向 driver 发送一个 message (RegisterExecutor: 注册 Executor 消息)
+  // 接收逻辑在 CoarseGrainedSchedulerBackend.receiveAndReply() 方法中
   override def onStart(): Unit = {
     if (env.conf.get(DECOMMISSION_ENABLED)) {
       logInfo("Registering PWR handler to trigger decommissioning.")
@@ -103,10 +104,12 @@ private[spark] class CoarseGrainedExecutorBackend(
       // This is a very fast action so we can use "ThreadUtils.sameThread"
       // 这是一个非常快速的操作, 因此我们可以使用 "ThreadUtils.sameThread"
       driver = Some(ref)
-      // 向 driver 发送一个 message (RegisterExecutor: 注册 Executor 消息)
+      // 向 driver 发送一个 message: RegisterExecutor (注册 Executor 消息)
       ref.ask[Boolean](RegisterExecutor(executorId, self, hostname, cores, extractLogUrls,
         extractAttributes, _resources, resourceProfile.id))
     }(ThreadUtils.sameThread).onComplete {
+
+      // 如果返回注册成功, 给自己发送一个 message: RegisteredExecutor (注册 Executor 完成)
       case Success(_) =>
         self.send(RegisteredExecutor)
       case Failure(e) =>
@@ -158,12 +161,22 @@ private[spark] class CoarseGrainedExecutorBackend(
       .map(e => (e._1.substring(prefix.length).toUpperCase(Locale.ROOT), e._2)).toMap
   }
 
+  // receive(): RpcEndpoint 生命周期的一个阶段 (完整生命周期为: constructor -> onStart -> receive* -> onStop)
+  // 在 RpcEndpoint 收到消息时调用.
   override def receive: PartialFunction[Any, Unit] = {
+
+    // 收到自己向自己发送的 message: RegisteredExecutor (注册 Executor 完成)
+    // 发送逻辑在 CoarseGrainedExecutorBackend.onStart() 方法中
     case RegisteredExecutor =>
       logInfo("Successfully registered with driver")
       try {
+        // 创建一个 Executor
+        // 这个 Executor 才是真正进行业务计算的 Executor
         executor = new Executor(executorId, hostname, env, userClassPath, isLocal = false,
           resources = _resources)
+
+        // 向 Driver 发送一个消息: LaunchedExecutor (启动 Executor)
+        // 接收逻辑在 CoarseGrainedSchedulerBackend.receive() 方法中
         driver.get.send(LaunchedExecutor(executorId))
       } catch {
         case NonFatal(e) =>
