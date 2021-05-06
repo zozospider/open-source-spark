@@ -228,7 +228,19 @@ private[spark] class SparkSubmit extends Logging {
    *        (4) the main class for the child
    *
    * Exposed for testing.
+   *
+   * 准备提交申请的环境.
+   *
+   * @param args 用于环境准备的已解析的 SparkSubmitArguments.
+   * @param conf 在 Hadoop 配置中, 仅在单元测试中设置此参数.
+   * @return 一个四元组:
+   *        (1) 子进程的参数,
+   *        (2) 子类的类路径条目的列表,
+   *        (3) 系统属性 map, 以及
+   *        (4) child 的 main class
    */
+  // 准备提交环境
+  // 在 yarn-cluster 模式下, childMainClass 为 org.apache.spark.deploy.yarn.YarnClusterApplication
   private[deploy] def prepareSubmitEnvironment(
                                                 args: SparkSubmitArguments,
                                                 conf: Option[HadoopConfiguration] = None)
