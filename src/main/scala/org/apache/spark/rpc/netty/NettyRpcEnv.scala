@@ -102,7 +102,12 @@ private[netty] class NettyRpcEnv(
   /**
    * A map for [[RpcAddress]] and [[Outbox]]. When we are connecting to a remote [[RpcAddress]],
    * we just put messages to its [[Outbox]] to implement a non-blocking `send` method.
+   *
+   * RpcAddress 和 Outbox 的映射.
+   * 当我们连接到远程 RpcAddress 时, 我们只是将消息放入其 Outbox 中以实现非阻塞的 `send` 方法.
    */
+  // key: RpcAddress - RPC 地址
+  // value: Outbox - 发件箱
   private val outboxes = new ConcurrentHashMap[RpcAddress, Outbox]()
 
   /**
@@ -115,14 +120,18 @@ private[netty] class NettyRpcEnv(
     }
   }
 
+  // 启动 Server
   def startServer(bindAddress: String, port: Int): Unit = {
-    val bootstraps: java.util.List[TransportServerBootstrap] =
+    val bootstraps: java.util.List[TransportServerBootstrap] = {
       if (securityManager.isAuthenticationEnabled()) {
         java.util.Arrays.asList(new AuthServerBootstrap(transportConf, securityManager))
       } else {
         java.util.Collections.emptyList()
       }
+    }
+    // 创建 TransportServer
     server = transportContext.createServer(bindAddress, port, bootstraps)
+    // 注册 RpcEndpoint
     dispatcher.registerRpcEndpoint(
       RpcEndpointVerifier.NAME, new RpcEndpointVerifier(this, dispatcher))
   }
@@ -484,6 +493,7 @@ private[netty] object NettyRpcEnv extends Logging {
 
 private[rpc] class NettyRpcEnvFactory extends RpcEnvFactory with Logging {
 
+  // 创建 NettyRpcEnv
   def create(config: RpcEnvConfig): RpcEnv = {
     val sparkConf = config.conf
     // Use JavaSerializerInstance in multiple threads is safe. However, if we plan to support
@@ -494,11 +504,15 @@ private[rpc] class NettyRpcEnvFactory extends RpcEnvFactory with Logging {
       new NettyRpcEnv(sparkConf, javaSerializerInstance, config.advertiseAddress,
         config.securityManager, config.numUsableCores)
     if (!config.clientMode) {
+
       val startNettyRpcEnv: Int => (NettyRpcEnv, Int) = { actualPort =>
+        // 启动 Server
         nettyEnv.startServer(config.bindAddress, actualPort)
         (nettyEnv, nettyEnv.address.port)
       }
       try {
+        // 在指定端口上启动 Server
+        // 启动逻辑在 startNettyRpcEnv 参数中: nettyEnv.startServer(config.bindAddress, actualPort)
         Utils.startServiceOnPort(config.port, startNettyRpcEnv, sparkConf, config.name)._1
       } catch {
         case NonFatal(e) =>
@@ -529,6 +543,17 @@ private[rpc] class NettyRpcEnvFactory extends RpcEnvFactory with Logging {
  * @param conf Spark configuration.
  * @param endpointAddress The address where the endpoint is listening.
  * @param nettyEnv The RpcEnv associated with this ref.
+ *
+ *
+ * RpcEndpointRef 的 NettyRpcEnv 版本.
+ *
+ * 根据创建位置的不同, 此类的行为也有所不同. 在 "owns" RpcEndpoint 的节点上, 它是围绕 RpcEndpointAddress 实例的简单包装.
+ *
+ * 在收到引用的序列化版本的其他计算机上, 行为会更改.
+ * 该实例将跟踪发送引用的 TransportClient, 以便通过客户端连接发送到 Endpoint 的 messages, 而无需打开新连接.
+ *
+ * 此引用的 RpcAddress 可以为 null; 这意味着 ref 只能通过客户端连接使用, 因为托管 Endpoint 的进程未在监听传入的连接.
+ * 这些 refs 不应与第三方共享, 因为它们将无法向 Endpoint 发送 messages.
  */
 private[netty] class NettyRpcEndpointRef(
                                           @transient private val conf: SparkConf,

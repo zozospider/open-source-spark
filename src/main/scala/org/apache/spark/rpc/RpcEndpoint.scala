@@ -69,6 +69,12 @@ private[spark] trait RpcEndpoint {
    *
    * Note: Because before `onStart`, [[RpcEndpoint]] has not yet been registered and there is not
    * valid [[RpcEndpointRef]] for it. So don't call `self` before `onStart` is called.
+   *
+   *
+   * 此 RpcEndpoint 的 RpcEndpointRef.
+   * 当调用 `onStart` 时, `self` 将变为有效. 当调用 `onStop` 时, `self` 将变为 `null`.
+   *
+   * 注意: 因为在 `onStart` 之前, RpcEndpoint 尚未注册, 并且没有有效的 RpcEndpointRef. 因此, 不要在调用 onStart 之前调用 self.
    */
   final def self: RpcEndpointRef = {
     require(rpcEnv != null, "rpcEnv has not been initialized")
@@ -78,6 +84,9 @@ private[spark] trait RpcEndpoint {
   /**
    * Process messages from `RpcEndpointRef.send` or `RpcCallContext.reply`. If receiving a
    * unmatched message, `SparkException` will be thrown and sent to `onError`.
+   *
+   * 处理来自 `RpcEndpointRef.send` 或 `RpcCallContext.reply` 的消息.
+   * 如果收到不匹配的消息, 则将抛出 `SparkException` 并将其发送给 `onError`.
    */
   def receive: PartialFunction[Any, Unit] = {
     case _ => throw new SparkException(self + " does not implement 'receive'")

@@ -203,7 +203,10 @@ class SparkContext(config: SparkConf) extends Logging {
   private var _eventLogDir: Option[URI] = None
   private var _eventLogCodec: Option[String] = None
   private var _listenerBus: LiveListenerBus = _
+
+  // SparkEnv: Spark 执行环境
   private var _env: SparkEnv = _
+
   private var _statusTracker: SparkStatusTracker = _
   private var _progressBar: Option[ConsoleProgressBar] = None
   private var _ui: Option[SparkUI] = None
@@ -273,10 +276,12 @@ class SparkContext(config: SparkConf) extends Logging {
   private[spark] def listenerBus: LiveListenerBus = _listenerBus
 
   // This function allows components created by SparkEnv to be mocked in unit tests:
+  // 此功能允许在单元测试中模拟由 SparkEnv 创建的组件:
   private[spark] def createSparkEnv(
                                      conf: SparkConf,
                                      isLocal: Boolean,
                                      listenerBus: LiveListenerBus): SparkEnv = {
+    // 为 Driver 创建一个 SparkEnv
     SparkEnv.createDriverEnv(conf, isLocal, listenerBus, SparkContext.numDriverCores(master, conf))
   }
 
@@ -458,6 +463,7 @@ class SparkContext(config: SparkConf) extends Logging {
     listenerBus.addToStatusQueue(_statusStore.listener.get)
 
     // Create the Spark execution environment (cache, map output tracker, etc)
+    // 创建 Spark 执行环境 (cache, map 输出跟踪器等)
     _env = createSparkEnv(_conf, isLocal, listenerBus)
     SparkEnv.set(_env)
 

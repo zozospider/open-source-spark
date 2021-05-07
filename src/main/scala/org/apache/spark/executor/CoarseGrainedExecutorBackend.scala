@@ -462,6 +462,8 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
 
       // 创建 SparkEnv
       driverConf.set(EXECUTOR_ID, arguments.executorId)
+
+      // 为 Executor 创建一个 SparkEnv
       val env = SparkEnv.createExecutorEnv(driverConf, arguments.executorId, arguments.bindAddress,
         arguments.hostname, arguments.cores, cfg.ioEncryptionKey, isLocal = false)
 

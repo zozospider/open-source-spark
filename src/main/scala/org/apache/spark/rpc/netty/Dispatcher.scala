@@ -34,6 +34,9 @@ import org.apache.spark.rpc._
  *
  * @param numUsableCores Number of CPU cores allocated to the process, for sizing the thread pool.
  *                       If 0, will consider the available CPUs on the host.
+ *
+ *
+ * message 调度器, 负责将 RPC messages 路由到适当的 endpoint(s).
  */
 private[netty] class Dispatcher(nettyEnv: NettyRpcEnv, numUsableCores: Int) extends Logging {
 
@@ -52,10 +55,12 @@ private[netty] class Dispatcher(nettyEnv: NettyRpcEnv, numUsableCores: Int) exte
   @GuardedBy("this")
   private var stopped = false
 
-  // 注册 RPC 通讯终端
+  // 注册 RpcEndpoint, 返回 NettyRpcEndpointRef
   def registerRpcEndpoint(name: String, endpoint: RpcEndpoint): NettyRpcEndpointRef = {
     // 通讯地址
     val addr = RpcEndpointAddress(nettyEnv.address, name)
+
+    // 创建 NettyRpcEndpointRef
     val endpointRef = new NettyRpcEndpointRef(nettyEnv.conf, addr, nettyEnv)
     synchronized {
       if (stopped) {
@@ -68,13 +73,18 @@ private[netty] class Dispatcher(nettyEnv: NettyRpcEnv, numUsableCores: Int) exte
       // This must be done before assigning RpcEndpoint to MessageLoop, as MessageLoop sets Inbox be
       // active when registering, and endpointRef must be put into endpointRefs before onStart is
       // called.
+      // 这必须在将 RpcEndpoint 分配给 MessageLoop 之前完成,
+      // 因为 MessageLoop 会将 Inbox 设置为在注册时处于活动状态, 并且必须在调用 onStart 之前将 endpointRef 放入 endpointRefs.
+
+      // key: RpcEndpoint
+      // value: NettyRpcEndpointRef
       endpointRefs.put(endpoint, endpointRef)
 
       var messageLoop: MessageLoop = null
       try {
         messageLoop = endpoint match {
           case e: IsolatedRpcEndpoint =>
-            // 专用于单个 RPC 终端的 message 循环.
+            // 专用于单个 RpcEndpoint 的 message 循环.
             new DedicatedMessageLoop(name, e, this)
           case _ =>
             sharedLoop.register(name, endpoint)

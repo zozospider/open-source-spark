@@ -55,6 +55,7 @@ private[netty] case class RemoteProcessConnectionError(cause: Throwable, remoteA
  * An inbox that stores messages for an [[RpcEndpoint]] and posts messages to it thread-safely.
  * 一个 inbox 收件箱, 用于存储 RpcEndpoint 的 messages 并以线程安全的方式将 messages 发布到 inbox 该收件箱.
  */
+// 收件箱
 private[netty] class Inbox(val endpointName: String, val endpoint: RpcEndpoint)
   extends Logging {
 

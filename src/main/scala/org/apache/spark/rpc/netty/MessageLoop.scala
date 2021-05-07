@@ -156,7 +156,7 @@ private class SharedMessageLoop(
 
 /**
  * A message loop that is dedicated to a single RPC endpoint.
- * 专用于单个 RPC 终端的 message 循环.
+ * 专用于单个 RpcEndpoint 的 message 循环.
  */
 private class DedicatedMessageLoop(
                                     name: String,
