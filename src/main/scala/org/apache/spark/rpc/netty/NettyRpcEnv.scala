@@ -694,6 +694,14 @@ private[netty] case class RpcFailure(e: Throwable)
  * Events are sent on a per-connection basis, so if a client opens multiple connections to the
  * RpcEnv, multiple connection / disconnection events will be created for that client (albeit
  * with different `RpcAddress` information).
+ *
+ *
+ * 将传入的 RPC 调度到已注册的 Endpoints.
+ *
+ * 处理程序会跟踪与之通信的所有客户端实例,
+ * 以便 RpcEnv 知道在将 RPC 发送到客户端 Endpoint 时 (即不监听传入连接但需要联系的通过客户端 socket 的 RPC 实例) 使用哪个 `TransportClient` 实例.
+ *
+ * 事件是基于每个连接发送的, 因此, 如果客户端打开与 RpcEnv 的多个连接, 则将为该客户端创建多个 连接 / 断开 事件 (尽管具有不同的 `RpcAddress` 信息).
  */
 private[netty] class NettyRpcHandler(
                                       dispatcher: Dispatcher,
