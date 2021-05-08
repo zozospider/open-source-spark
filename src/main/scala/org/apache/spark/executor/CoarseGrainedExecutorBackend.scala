@@ -460,7 +460,6 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
         SparkHadoopUtil.get.addDelegationTokens(tokens, driverConf)
       }
 
-      // 创建 SparkEnv
       driverConf.set(EXECUTOR_ID, arguments.executorId)
 
       // 为 Executor 创建一个 SparkEnv
