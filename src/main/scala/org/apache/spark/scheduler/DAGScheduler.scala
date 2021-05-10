@@ -1306,7 +1306,7 @@ private[spark] class DAGScheduler(
           // 如果没有上一级, 则提交当前 Stage (阶段)
           logInfo("Submitting " + stage + " (" + stage.rdd + "), which has no missing parents")
 
-          //
+          // 提交当前 Stage (阶段) 中的 Tasks (任务)
           submitMissingTasks(stage, jobId.get)
 
         } else {
@@ -1372,6 +1372,7 @@ private[spark] class DAGScheduler(
 
   /** Called when stage's parents are available and we can now do its task. */
   /** 当 Stage (阶段) 的 parents 空闲时调用, 我们现在可以完成其 Task (任务). */
+  // 提交当前 Stage (阶段) 中的 Tasks (任务)
   private def submitMissingTasks(stage: Stage, jobId: Int): Unit = {
     logDebug("submitMissingTasks(" + stage + ")")
 
@@ -1386,6 +1387,7 @@ private[spark] class DAGScheduler(
 
     // Figure out the indexes of partition ids to compute.
     // 找出要计算的 Partition (分区) ID 的索引.
+    // 分区编号
     val partitionsToCompute: Seq[Int] = stage.findMissingPartitions()
 
     // Use the scheduling pool, job group, description, etc. from an ActiveJob associated
@@ -1488,29 +1490,39 @@ private[spark] class DAGScheduler(
         return
     }
 
-    //
+    // 获取 Tasks (任务) 序列
     val tasks: Seq[Task[_]] = try {
       val serializedTaskMetrics = closureSerializer.serialize(stage.latestInfo.taskMetrics).array()
+
+      // 判断当前 Stage (阶段) 是 ShuffleMapStage / ResultStage:
+      // 如果是 ShuffleMapStage, 则创建 ShuffleMapTask (有多少个分区, 则创建多少个 ShuffleMapTask)
+      // 如果是 ResultStage, 则创建 ResultTask (有多少个分区, 则创建多少个 ResultTask)
       stage match {
 
+        // 如果是 ShuffleMapStage, 则创建 ShuffleMapTask
         case stage: ShuffleMapStage =>
           stage.pendingPartitions.clear()
 
+          // partitionsToCompute: 分区编号
           partitionsToCompute.map { id =>
             val locs = taskIdToLocations(id)
             val part = partitions(id)
             stage.pendingPartitions += id
-            // 创建 ShuffleMapTask
+            // 有多少个分区, 则创建多少个 ShuffleMapTask
             new ShuffleMapTask(stage.id, stage.latestInfo.attemptNumber,
               taskBinary, part, locs, properties, serializedTaskMetrics, Option(jobId),
               Option(sc.applicationId), sc.applicationAttemptId, stage.rdd.isBarrier())
           }
 
+        // 如果是 ResultStage, 则创建 ResultTask
         case stage: ResultStage =>
+
+          // partitionsToCompute: 分区编号
           partitionsToCompute.map { id =>
             val p: Int = stage.partitions(id)
             val part = partitions(p)
             val locs = taskIdToLocations(id)
+            // 有多少个分区, 则创建多少个 ResultTask
             new ResultTask(stage.id, stage.latestInfo.attemptNumber,
               taskBinary, part, locs, id, properties, serializedTaskMetrics,
               Option(jobId), Option(sc.applicationId), sc.applicationAttemptId,
