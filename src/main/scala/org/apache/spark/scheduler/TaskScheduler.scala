@@ -64,6 +64,7 @@ private[spark] trait TaskScheduler {
   def stop(): Unit
 
   // Submit a sequence of tasks to run.
+  // 提交一系列要运行的 Tasks (任务).
   def submitTasks(taskSet: TaskSet): Unit
 
   // Kill all the tasks in a stage and fail the stage and all the jobs that depend on the stage.

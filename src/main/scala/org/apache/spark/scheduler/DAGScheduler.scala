@@ -1536,9 +1536,12 @@ private[spark] class DAGScheduler(
         return
     }
 
+    // 提交 Tasks (任务)
     if (tasks.nonEmpty) {
       logInfo(s"Submitting ${tasks.size} missing tasks from $stage (${stage.rdd}) (first 15 " +
         s"tasks are for partitions ${tasks.take(15).map(_.partitionId)})")
+
+      // 将多个 Tasks (任务) 转换成 TaskSet (任务集合) 并提交
       taskScheduler.submitTasks(new TaskSet(
         tasks.toArray, stage.id, stage.latestInfo.attemptNumber, jobId, properties,
         stage.resourceProfileId))

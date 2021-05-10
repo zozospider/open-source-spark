@@ -74,7 +74,35 @@ import org.apache.spark.util.{AccumulatorV2, Clock, SystemClock, ThreadUtils, Ut
  *  is not utilized despite there being pending tasks (implemented inside [[TaskSetManager]]).
  *  The legacy heuristic only measured the time since the [[TaskSetManager]] last launched a task,
  *  and can be re-enabled by setting spark.locality.wait.legacyResetOnTaskLaunch to true.
+ *
+ *
+ *  通过 SchedulerBackend 进行操作, 为多种类型的群集计划任务.
+ *  通过使用 LocalSchedulerBackend 并将 isLocal 设置为 true, 它也可以与本地设置一起使用.
+ *  它处理常见的逻辑, 例如确定跨作业的调度顺序, 唤醒以启动推测性任务等.
+ *
+ *  客户应首先调用 initialize() 和 start(), 然后通过 SubmitTasks 方法提交 TaskSet (任务集).
+ *
+ *  线程: SchedulerBackend 和提交任务的客户端可以从多个线程调用此类, 因此它需要锁定公共 API 方法以维护其状态.
+ *  此外, 某些 SchedulerBackend 在他们要在此处发送事件时会自行同步, 然后获得对我们的锁定, 因此我们需要确保在持有密码时不要尝试锁定 Backend.
+ *  锁定我们自己. 此类从许多线程中调用, 尤其是:
+ * * DAGScheduler 事件循环
+ * * RPCHandler 线程, 响应 Executors 的状态更新
+ * * 定期恢复来自 CoarseGrainedSchedulerBackend 的所有 offers, 以适应延迟计划
+ * * 任务结果获取线程
+ *
+ *  注意: 可以吞下 Spark RPC 框架中引发的任何非致命异常.
+ *  因此, 在诸如 resourceOffers, statusUpdate 之类的方法中引发异常不会使应用程序失败, 但可能导致未定义的行为.
+ *  相反, 我们将使用 TaskSetManger.abort() 之类的方法来中止 Stage, 然后使应用程序失败 (SPARK-31485).
+ *
+ *  延迟调度:
+ *  延迟调度是一种优化, 它牺牲了数据局部性的工作公平性, 以提高集群和工作负载的吞吐量.
+ *  对 "delay" 的一个有用定义是自 TaskSet 使用其公平的资源份额以来已经经过了多少时间.
+ *  由于在没有完整模拟的情况下计算此延迟是不切实际的, 因此使用启发式方法是自 TaskSetManager 上次启动任务以来的时间, 并且自上次提供 "fair share (公平共享)" 以来未因延迟计划而拒绝任何资源.
+ *  当 resourceOffers 的参数 "isAllFreeResources" 设置为 true 时, 即为 "fair share (公平共享)" 要约.
+ *  "delay scheduling reject (延迟调度拒绝)" 是指尽管有待处理的任务也未使用资源 (在 TaskSetManager 中实现).
+ *  旧式启发式仅测量自 TaskSetManager 上次启动任务以来的时间, 可以通过将 spark.locality.wait.legacyResetOnTaskLaunch 设置为 true 来重新启用.
  */
+// 实现 TaskScheduler
 private[spark] class TaskSchedulerImpl(
                                         val sc: SparkContext,
                                         val maxTaskFailures: Int,
@@ -163,6 +191,7 @@ private[spark] class TaskSchedulerImpl(
 
   val mapOutputTracker = SparkEnv.get.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
 
+  // SchedulableBuilder (调度构建器), SchedulingMode (调度模式) 分为 FIFO (先进先出) 模式和 FAIR (公平) 模式
   private var schedulableBuilder: SchedulableBuilder = null
   // default scheduler is FIFO
   private val schedulingModeConf = conf.get(SCHEDULER_MODE)
@@ -200,10 +229,15 @@ private[spark] class TaskSchedulerImpl(
 
   def initialize(backend: SchedulerBackend): Unit = {
     this.backend = backend
+
+    // 确认 SchedulableBuilder (调度构建器) 的具体实现
+    // SchedulingMode (调度模式) 分为 FIFO (先进先出) 模式和 FAIR (公平) 模式, 可通过配置 spark.scheduler.mode 确定, 默认为 FIFO (先进先出)
     schedulableBuilder = {
       schedulingMode match {
+        // 先进先出
         case SchedulingMode.FIFO =>
           new FIFOSchedulableBuilder(rootPool)
+        // 公平
         case SchedulingMode.FAIR =>
           new FairSchedulableBuilder(rootPool, conf)
         case _ =>
@@ -234,11 +268,14 @@ private[spark] class TaskSchedulerImpl(
     waitBackendReady()
   }
 
+  // 提交 TaskSet (任务集合)
   override def submitTasks(taskSet: TaskSet): Unit = {
     val tasks = taskSet.tasks
     logInfo("Adding task set " + taskSet.id + " with " + tasks.length + " tasks "
       + "resource profile " + taskSet.resourceProfileId)
     this.synchronized {
+
+      // 创建 TaskSetManager
       val manager = createTaskSetManager(taskSet, maxTaskFailures)
       val stage = taskSet.stageId
       val stageTaskSets =
@@ -257,6 +294,9 @@ private[spark] class TaskSchedulerImpl(
         ts.isZombie = true
       }
       stageTaskSets(taskSet.stageAttemptId) = manager
+
+      // SchedulableBuilder (调度构建器), SchedulingMode (调度模式) 分为 FIFO (先进先出) 模式和 FAIR (公平) 模式
+      // 将 TaskSetManager 添加到 SchedulableBuilder (调度构建器) 中
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
       if (!isLocal && !hasReceivedTask) {
@@ -278,9 +318,12 @@ private[spark] class TaskSchedulerImpl(
   }
 
   // Label as private[scheduler] to allow tests to swap in different task set managers if necessary
+  // 标记为 private[scheduler] 以允许测试在必要时在不同的 TaskSetManager 中交换
+  // 创建 TaskSetManager
   private[scheduler] def createTaskSetManager(
                                                taskSet: TaskSet,
                                                maxTaskFailures: Int): TaskSetManager = {
+    // 创建 TaskSetManager
     new TaskSetManager(this, taskSet, maxTaskFailures, healthTrackerOpt, clock)
   }
 
