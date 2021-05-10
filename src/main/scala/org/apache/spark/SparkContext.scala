@@ -78,6 +78,9 @@ import org.apache.spark.util.logging.DriverLogger
  *   active `SparkContext` before creating a new one.
  * @param config a Spark Config object describing the application configuration. Any settings in
  *   this config overrides the default configs as well as system properties.
+ *
+ *
+ * Spark 功能的主要入口点. SparkContext 表示与 Spark 集群的连接, 可用于在该集群上创建 RDD, 累加器和广播变量.
  */
 class SparkContext(config: SparkConf) extends Logging {
 
@@ -199,12 +202,14 @@ class SparkContext(config: SparkConf) extends Logging {
    | constructor is still running is safe.                                                 |
    * ------------------------------------------------------------------------------------- */
 
+  // 配置对象: 基础环境配置
   private var _conf: SparkConf = _
   private var _eventLogDir: Option[URI] = None
   private var _eventLogCodec: Option[String] = None
   private var _listenerBus: LiveListenerBus = _
 
   // SparkEnv: Spark 执行环境
+  // 环境对象: 通信环境
   private var _env: SparkEnv = _
 
   private var _statusTracker: SparkStatusTracker = _
@@ -213,12 +218,18 @@ class SparkContext(config: SparkConf) extends Logging {
   private var _hadoopConfiguration: Configuration = _
   private var _executorMemory: Int = _
 
-  // 通信后端
+  // 通信后端: 主要用于和 Executor 之间进行通信
   private var _schedulerBackend: SchedulerBackend = _
 
+  // 任务调度器: 任务的调度
   private var _taskScheduler: TaskScheduler = _
+
+  // 用于心跳检测的 RpcEndpointRef
   private var _heartbeatReceiver: RpcEndpointRef = _
+
+  // 阶段调度器: 主要用于阶段的划分和任务的切分
   @volatile private var _dagScheduler: DAGScheduler = _
+
   private var _applicationId: String = _
   private var _applicationAttemptId: Option[String] = None
   private var _eventLogger: Option[EventLoggingListener] = None
@@ -922,6 +933,10 @@ class SparkContext(config: SparkConf) extends Logging {
    * @param path path to the text file on a supported file system
    * @param minPartitions suggested minimum number of partitions for the resulting RDD
    * @return RDD of lines of the text file
+   *
+   * 从 HDFS, 本地文件系统 (在所有节点上都可用) 或任何 Hadoop 支持的文件系统 URI 中读取文本文件, 并将其作为字符串的 RDD 返回.
+   *
+   * 文本文件必须编码为 UTF-8.
    */
   def textFile(
                 path: String,
@@ -2190,6 +2205,9 @@ class SparkContext(config: SparkConf) extends Logging {
    * Run a function on a given set of partitions in an RDD and pass the results to the given
    * handler function. This is the main entry point for all actions in Spark.
    *
+   * 在 RDD 中给定的一组分区上运行一个函数, 并将结果传递给给定的处理函数.
+   * 这是 Spark 中所有动作的主要切入点.
+   *
    * @param rdd target RDD to run tasks on
    * @param func a function to run on each partition of the RDD
    * @param partitions set of partitions to run on; some jobs may not want to compute on all
@@ -2210,6 +2228,8 @@ class SparkContext(config: SparkConf) extends Logging {
     if (conf.getBoolean("spark.logLineage", false)) {
       logInfo("RDD's recursive dependencies:\n" + rdd.toDebugString)
     }
+
+    // main logic
     dagScheduler.runJob(rdd, cleanedFunc, partitions, callSite, resultHandler, localProperties.get)
     progressBar.foreach(_.finishAll())
     rdd.doCheckpoint()
@@ -2218,6 +2238,9 @@ class SparkContext(config: SparkConf) extends Logging {
   /**
    * Run a function on a given set of partitions in an RDD and return the results as an array.
    * The function that is run against each partition additionally takes `TaskContext` argument.
+   *
+   * 在 RDD 中的一组给定分区上运行一个函数, 并将结果作为数组返回.
+   * 针对每个分区运行的函数还带有 `TaskContext` 参数.
    *
    * @param rdd target RDD to run tasks on
    * @param func a function to run on each partition of the RDD
@@ -2231,6 +2254,8 @@ class SparkContext(config: SparkConf) extends Logging {
                               func: (TaskContext, Iterator[T]) => U,
                               partitions: Seq[Int]): Array[U] = {
     val results = new Array[U](partitions.size)
+
+    // main logic
     runJob[T, U](rdd, func, partitions, (index, res) => results(index) = res)
     results
   }
@@ -2257,12 +2282,16 @@ class SparkContext(config: SparkConf) extends Logging {
    * Run a job on all partitions in an RDD and return the results in an array. The function
    * that is run against each partition additionally takes `TaskContext` argument.
    *
+   * 在 RDD 中的所有分区上运行 Job, 然后将结果返回到数组中.
+   * 针对每个分区运行的函数还带有 `TaskContext` 参数.
+   *
    * @param rdd target RDD to run tasks on
    * @param func a function to run on each partition of the RDD
    * @return in-memory collection with a result of the job (each collection element will contain
    * a result from one partition)
    */
   def runJob[T, U: ClassTag](rdd: RDD[T], func: (TaskContext, Iterator[T]) => U): Array[U] = {
+    // main logic
     runJob(rdd, func, 0 until rdd.partitions.length)
   }
 
