@@ -390,7 +390,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
       // 循环 Tasks (任务)
       for (task <- tasks.flatten) {
 
-        // 将当前 Task (任务) 序列化
+        // 将当前 Task (任务) 序列化成 ByteBuffer
         val serializedTask = TaskDescription.encode(task)
 
         if (serializedTask.limit() >= maxRpcMessageSize) {
@@ -422,7 +422,8 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           logDebug(s"Launching task ${task.taskId} on executor id: ${task.executorId} hostname: " +
             s"${executorData.executorHost}.")
 
-          // 将当前 Task (任务) 封装成 LaunchTask, 发送给该 Task (任务) 对应的 Executor 的 RpcEndpointRef (通信终端引用)
+          // 将当前 Task (任务) 封装成消息: LaunchTask, 发送给该 Task (任务) 对应的 Executor 的 RpcEndpointRef (通信终端引用)
+          // 接收逻辑在 CoarseGrainedExecutorBackend.receive() 方法中
           executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
         }
       }

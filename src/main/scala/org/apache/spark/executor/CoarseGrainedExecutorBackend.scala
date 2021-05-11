@@ -183,13 +183,19 @@ private[spark] class CoarseGrainedExecutorBackend(
           exitExecutor(1, "Unable to create executor due to " + e.getMessage, e)
       }
 
+    // 收到消息: LaunchTask
+    // 发送逻辑在 CoarseGrainedSchedulerBackend.launchTasks() 方法中
     case LaunchTask(data) =>
       if (executor == null) {
         exitExecutor(1, "Received LaunchTask command but executor was null")
       } else {
+
+        // 将 data 反序列化成 TaskDescription (任务描述信息)
         val taskDesc = TaskDescription.decode(data.value)
         logInfo("Got assigned task " + taskDesc.taskId)
         taskResources(taskDesc.taskId) = taskDesc.resources
+
+        // Executor 启动 Task (任务)
         executor.launchTask(this, taskDesc)
       }
 
