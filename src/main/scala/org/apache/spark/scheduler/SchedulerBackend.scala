@@ -42,6 +42,7 @@ private[spark] trait SchedulerBackend {
   def stop(): Unit
   /**
    * Update the current offers and schedule tasks
+   * 更新当前 offers 和计划任务
    */
   def reviveOffers(): Unit
   def defaultParallelism(): Int

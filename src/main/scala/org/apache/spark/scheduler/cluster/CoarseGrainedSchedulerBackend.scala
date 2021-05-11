@@ -171,7 +171,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           }
         }
 
+      // 接收到当前类发送的消息: ReviveOffers
+      // 发送逻辑在当前类的 reviveOffers() 方法中
       case ReviveOffers =>
+        // 启动 Tasks (任务)
         makeOffers()
 
       case KillTask(taskId, executorId, interruptThread, reason) =>
@@ -312,8 +315,14 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     // Make fake resource offers on all executors
+    // 向所有 Executors 提供虚假资源 offers
+
+    // 启动 Tasks (任务)
     private def makeOffers(): Unit = {
       // Make sure no executor is killed while some task is launching on it
+      // 确保在执行某些 Task (任务) 时没有 kill Executor
+
+      // 得到 TaskDescriptions (任务描述信息)
       val taskDescs = withLock {
         // Filter out executors under killing
         val activeExecutors = executorDataMap.filterKeys(isExecutorActive)
@@ -325,9 +334,16 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
                 (rName, rInfo.availableAddrs.toBuffer)
               }, executorData.resourceProfileId)
         }.toIndexedSeq
+
+        // 得到 TaskDescriptions (任务描述信息):
+        // 从 Pool (任务池: 可存放多个 TaskSetManager 的 Pool) 中拿到排序后的 TaskSetManager 集合
+        // 判断本地化级别, 确认 Tasks (任务) 应该发到哪里
         scheduler.resourceOffers(workOffers, true)
       }
+
+      // 如果 TaskDescriptions (任务描述信息) 不为空则启动 Tasks (任务)
       if (taskDescs.nonEmpty) {
+        // 启动 Tasks (任务)
         launchTasks(taskDescs)
       }
     }
@@ -342,7 +358,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     // Make fake resource offers on just one executor
-    // 只需一个 Executor 就可以提供虚假的资源报价
+    // 只需一个 Executor 就可以提供虚假的资源 offers
     private def makeOffers(executorId: String): Unit = {
       // Make sure no executor is killed while some task is launching on it
       val taskDescs = withLock {
@@ -366,9 +382,17 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
 
     // Launch tasks returned by a set of resource offers
+    // 一组资源 offers 返回的启动 Tasks (任务)
+
+    // 启动 Tasks (任务)
     private def launchTasks(tasks: Seq[Seq[TaskDescription]]): Unit = {
+
+      // 循环 Tasks (任务)
       for (task <- tasks.flatten) {
+
+        // 将当前 Task (任务) 序列化
         val serializedTask = TaskDescription.encode(task)
+
         if (serializedTask.limit() >= maxRpcMessageSize) {
           Option(scheduler.taskIdToTaskSetManager.get(task.taskId)).foreach { taskSetMgr =>
             try {
@@ -398,6 +422,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           logDebug(s"Launching task ${task.taskId} on executor id: ${task.executorId} hostname: " +
             s"${executorData.executorHost}.")
 
+          // 将当前 Task (任务) 封装成 LaunchTask, 发送给该 Task (任务) 对应的 Executor 的 RpcEndpointRef (通信终端引用)
           executorData.executorEndpoint.send(LaunchTask(new SerializableBuffer(serializedTask)))
         }
       }
@@ -597,7 +622,11 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
     }
   }
 
+  // 给自己发送消息: ReviveOffers
+  // 接收逻辑在当前类的 receive() 方法中
   override def reviveOffers(): Unit = Utils.tryLogNonFatalError {
+    // 给自己发送消息: ReviveOffers
+    // 接收逻辑在当前类的 receive() 方法中
     driverEndpoint.send(ReviveOffers)
   }
 

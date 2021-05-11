@@ -297,6 +297,7 @@ private[spark] class TaskSchedulerImpl(
 
       // SchedulableBuilder (调度构建器), SchedulingMode (调度模式) 分为 FIFO (先进先出) 模式和 FAIR (公平) 模式
       // 将 TaskSetManager 添加到 SchedulableBuilder (调度构建器) 中
+      // 最终添加到了 SchedulableBuilder (调度构建器) 中的 Pool (任务池: 可存放多个 TaskSetManager 的 Pool) 中
       schedulableBuilder.addTaskSetManager(manager, manager.taskSet.properties)
 
       if (!isLocal && !hasReceivedTask) {
@@ -314,6 +315,10 @@ private[spark] class TaskSchedulerImpl(
       }
       hasReceivedTask = true
     }
+
+    // 给 CoarseGrainedSchedulerBackend 发送消息: ReviveOffers
+    // 接收逻辑在 CoarseGrainedSchedulerBackend.receive() 方法中
+    // 接收逻辑中最终会启动 Tasks (任务)
     backend.reviveOffers()
   }
 
@@ -534,7 +539,14 @@ private[spark] class TaskSchedulerImpl(
    * Called by cluster manager to offer resources on workers. We respond by asking our active task
    * sets for tasks in order of priority. We fill each node with tasks in a round-robin manner so
    * that tasks are balanced across the cluster.
+   *
+   * 由集群管理器调用以为工作人员提供资源.
+   * 我们通过以优先顺序向活动 TaskSet (任务集) 询问任务来做出响应.
+   * 我们以轮循方式为每个节点填充任务, 以便在整个群集之间平衡任务.
    */
+  // 得到 TaskDescriptions (任务描述信息):
+  // 从 Pool (任务池: 可存放多个 TaskSetManager 的 Pool) 中拿到排序后的 TaskSetManager 集合
+  // 判断本地化级别, 确认 Tasks (任务) 应该发到哪里
   def resourceOffers(
                       offers: IndexedSeq[WorkerOffer],
                       isAllFreeResources: Boolean = true): Seq[Seq[TaskDescription]] = synchronized {
@@ -578,6 +590,8 @@ private[spark] class TaskSchedulerImpl(
     val availableResources = shuffledOffers.map(_.resources).toArray
     val availableCpus = shuffledOffers.map(o => o.cores).toArray
     val resourceProfileIds = shuffledOffers.map(o => o.resourceProfileId).toArray
+
+    // 从 Pool (任务池: 可存放多个 TaskSetManager 的 Pool) 中拿到排序后的 TaskSetManager 集合
     val sortedTaskSets = rootPool.getSortedTaskSetQueue
     for (taskSet <- sortedTaskSets) {
       logDebug("parentName: %s, name: %s, runningTasks: %s".format(
@@ -619,6 +633,13 @@ private[spark] class TaskSchedulerImpl(
         var globalMinLocality: Option[TaskLocality] = None
         // Record all the executor IDs assigned barrier tasks on.
         val addressesWithDescs = ArrayBuffer[(String, TaskDescription)]()
+
+        // 判断本地化级别, 确认 Tasks (任务) 应该发到哪里:
+        // PROCESS_LOCAL: 进程本地化, Task 和数据在同一个 Executor (进程) 中, 性能最好
+        // NODE_LOCAL: 节点本地化, Task 和数据在同一个节点中, 但是 Task 和数据不在同一个 Executor (进程) 中, 数据需要在进程间进行传输.
+        // NO_PREF: 对于 Task 来说, 从哪里获取都一样, 没有好坏之分.
+        // RACK_LOCAL: 机架本地化, Task 和数据在同一个机架的两个节点上, 数据需要通过网络在节点之间进行传输.
+        // ANY: Task 和数据可以在集群的任何地方, 而且不在一个机架中, 性能最差.
         for (currentMaxLocality <- taskSet.myLocalityLevels) {
           var launchedTaskAtCurrentMaxLocality = false
           do {

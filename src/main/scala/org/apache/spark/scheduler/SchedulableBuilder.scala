@@ -57,7 +57,7 @@ private[spark] class FIFOSchedulableBuilder(val rootPool: Pool)
 
   // 将 TaskSetManager 添加到 SchedulableBuilder (调度构建器) 中
   override def addTaskSetManager(manager: Schedulable, properties: Properties): Unit = {
-    // 添加到 TaskSetManagerPool (可存放多个 TaskSetManager 的 Pool) 中
+    // 添加到 Pool (任务池: 可存放多个 TaskSetManager 的 Pool) 中
     rootPool.addSchedulable(manager)
   }
 }

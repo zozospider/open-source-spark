@@ -226,7 +226,17 @@ private[spark] class TaskSetManager(
    * the set of currently available executors.  This is updated as executors are added and removed.
    * This allows a performance optimization, of skipping levels that aren't relevant (e.g., skip
    * PROCESS_LOCAL if no tasks could be run PROCESS_LOCAL for the current set of executors).
+   *
+   *
+   * 跟踪给定的任务本地性首选项和当前可用 Executors 集合的有效的本地性级别集. 在添加和删除执行程序时, 此更新.
+   * 这样可以进行性能优化, 从而跳过不相关的级别 (例如, 如果对于当前的执行者集, 如果没有任务可以运行 PROCESS_LOCAL, 则跳过 PROCESS_LOCAL).
    */
+  // 本地化级别:
+  // PROCESS_LOCAL: 进程本地化, Task 和数据在同一个 Executor (进程) 中, 性能最好
+  // NODE_LOCAL: 节点本地化, Task 和数据在同一个节点中, 但是 Task 和数据不在同一个 Executor (进程) 中, 数据需要在进程间进行传输.
+  // NO_PREF: 对于 Task 来说, 从哪里获取都一样, 没有好坏之分.
+  // RACK_LOCAL: 机架本地化, Task 和数据在同一个机架的两个节点上, 数据需要通过网络在节点之间进行传输.
+  // ANY: Task 和数据可以在集群的任何地方, 而且不在一个机架中, 性能最差.
   private[scheduler] var myLocalityLevels = computeValidLocalityLevels()
 
   // Time to wait at each level
@@ -1114,7 +1124,14 @@ private[spark] class TaskSetManager(
    * Compute the locality levels used in this TaskSet. Assumes that all tasks have already been
    * added to queues using addPendingTask.
    *
+   * 计算此 TaskSet 中使用的位置级别. 假设已经使用 addPendingTask 将所有任务添加到队列中.
    */
+  // 本地化级别:
+  // PROCESS_LOCAL: 进程本地化, Task 和数据在同一个 Executor (进程) 中, 性能最好
+  // NODE_LOCAL: 节点本地化, Task 和数据在同一个节点中, 但是 Task 和数据不在同一个 Executor (进程) 中, 数据需要在进程间进行传输.
+  // NO_PREF: 对于 Task 来说, 从哪里获取都一样, 没有好坏之分.
+  // RACK_LOCAL: 机架本地化, Task 和数据在同一个机架的两个节点上, 数据需要通过网络在节点之间进行传输.
+  // ANY: Task 和数据可以在集群的任何地方, 而且不在一个机架中, 性能最差.
   private def computeValidLocalityLevels(): Array[TaskLocality.TaskLocality] = {
     import TaskLocality.{PROCESS_LOCAL, NODE_LOCAL, NO_PREF, RACK_LOCAL, ANY}
     val levels = new ArrayBuffer[TaskLocality.TaskLocality]

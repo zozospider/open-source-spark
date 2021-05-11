@@ -30,7 +30,7 @@ import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
  *
  * 可调度的实体, 表示 Pools 或 TaskSetManagers 的集合
  */
-// TaskSetManagerPool (可存放多个 TaskSetManager 的 Pool)
+// Pool (任务池: 可存放多个 TaskSetManager 的 Pool)
 private[spark] class Pool(
                            val poolName: String,
                            val schedulingMode: SchedulingMode,
@@ -52,10 +52,13 @@ private[spark] class Pool(
   val name = poolName
   var parent: Pool = null
 
+  // TaskSetManager 任务集合的调度算法: FIFO (先进先出调度算法) / Fair (公平调度算法)
   private val taskSetSchedulingAlgorithm: SchedulingAlgorithm = {
     schedulingMode match {
+      // FairSchedulingAlgorithm (先进先出调度算法)
       case SchedulingMode.FAIR =>
         new FairSchedulingAlgorithm()
+      // FIFOSchedulingAlgorithm (公平调度算法)
       case SchedulingMode.FIFO =>
         new FIFOSchedulingAlgorithm()
       case _ =>
@@ -107,6 +110,8 @@ private[spark] class Pool(
     shouldRevive
   }
 
+  // 拿到排序后的 TaskSetManager 集合
+  // 通过 taskSetSchedulingAlgorithm (任务集合的调度算法) 获取: FIFO (先进先出调度算法) / Fair (公平调度算法)
   override def getSortedTaskSetQueue: ArrayBuffer[TaskSetManager] = {
     val sortedTaskSetQueue = new ArrayBuffer[TaskSetManager]
     val sortedSchedulableQueue =
