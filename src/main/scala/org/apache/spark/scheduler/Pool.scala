@@ -69,9 +69,13 @@ private[spark] class Pool(
 
   override def isSchedulable: Boolean = true
 
+  // 添加到 Pool (任务池: 可存放多个 TaskSetManager 的 Pool) 中
   override def addSchedulable(schedulable: Schedulable): Unit = {
     require(schedulable != null)
+
+    // 添加到 schedulableQueue (保存 Schedulable (如 TaskSetManager) 的队列)
     schedulableQueue.add(schedulable)
+
     schedulableNameToSchedulable.put(schedulable.name, schedulable)
     schedulable.parent = this
   }
