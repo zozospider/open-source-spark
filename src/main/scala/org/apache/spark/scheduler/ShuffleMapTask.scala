@@ -54,6 +54,7 @@ import org.apache.spark.rdd.RDD
  * @param isBarrier whether this task belongs to a barrier stage. Spark must launch all the tasks
  *                  at the same time for a barrier stage.
  */
+// 继承 Task
 private[spark] class ShuffleMapTask(
                                      stageId: Int,
                                      stageAttemptId: Int,
@@ -102,6 +103,8 @@ private[spark] class ShuffleMapTask(
     val mapId = if (SparkEnv.get.conf.get(config.SHUFFLE_USE_OLD_FETCH_PROTOCOL)) {
       partitionId
     } else context.taskAttemptId()
+
+    // 执行 Write
     dep.shuffleWriterProcessor.write(rdd, dep, mapId, context, partition)
   }
 

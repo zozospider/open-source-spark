@@ -56,6 +56,7 @@ import org.apache.spark.rdd.RDD
  * @param isBarrier whether this task belongs to a barrier stage. Spark must launch all the tasks
  *                  at the same time for a barrier stage.
  */
+// 继承 Task
 private[spark] class ResultTask[T, U](
                                        stageId: Int,
                                        stageAttemptId: Int,
