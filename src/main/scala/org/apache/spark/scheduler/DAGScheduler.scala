@@ -1508,6 +1508,7 @@ private[spark] class DAGScheduler(
             val locs = taskIdToLocations(id)
             val part = partitions(id)
             stage.pendingPartitions += id
+
             // 有多少个分区, 则创建多少个 ShuffleMapTask
             new ShuffleMapTask(stage.id, stage.latestInfo.attemptNumber,
               taskBinary, part, locs, properties, serializedTaskMetrics, Option(jobId),
@@ -1522,6 +1523,7 @@ private[spark] class DAGScheduler(
             val p: Int = stage.partitions(id)
             val part = partitions(p)
             val locs = taskIdToLocations(id)
+
             // 有多少个分区, 则创建多少个 ResultTask
             new ResultTask(stage.id, stage.latestInfo.attemptNumber,
               taskBinary, part, locs, id, properties, serializedTaskMetrics,
