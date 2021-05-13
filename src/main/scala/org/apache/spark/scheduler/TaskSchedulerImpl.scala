@@ -317,7 +317,7 @@ private[spark] class TaskSchedulerImpl(
     }
 
     // 给 CoarseGrainedSchedulerBackend 发送消息: ReviveOffers
-    // 接收逻辑在 CoarseGrainedSchedulerBackend.receive() 方法中
+    // 接收逻辑在 DriverEndpoint.receive() 方法中
     // 接收逻辑中最终会启动 Tasks (任务)
     backend.reviveOffers()
   }

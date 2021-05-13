@@ -172,7 +172,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         }
 
       // 接收到当前类发送的消息: ReviveOffers
-      // 发送逻辑在当前类的 reviveOffers() 方法中
+      // 发送逻辑在当前类的 CoarseGrainedSchedulerBackend.reviveOffers() 方法中
       case ReviveOffers =>
         // 启动 Tasks (任务)
         makeOffers()
@@ -624,7 +624,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   }
 
   // 给自己发送消息: ReviveOffers
-  // 接收逻辑在当前类的 receive() 方法中
+  // 接收逻辑在当前类的 DriverEndpoint.receive() 方法中
   override def reviveOffers(): Unit = Utils.tryLogNonFatalError {
     // 给自己发送消息: ReviveOffers
     // 接收逻辑在当前类的 receive() 方法中
