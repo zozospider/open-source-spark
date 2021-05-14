@@ -90,6 +90,10 @@ import org.apache.spark.util.Utils;
  *
  * 已经有人提出了完全删除该代码路径的建议. 有关详细信息, 请参见 SPARK-6026.
  */
+// 实现 ShuffleWriter
+// 满足以下条件则使用: BypassMergeSortShuffleHandle -> BypassMergeSortShuffleWriter
+// 1. 没有 Map 端预聚合
+// 2. 下游的分区数量 <= 200 (可配)
 final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
     private static final Logger logger = LoggerFactory.getLogger(BypassMergeSortShuffleWriter.class);
