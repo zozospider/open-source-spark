@@ -94,6 +94,7 @@ private[spark] class ResultTask[T, U](
       threadMXBean.getCurrentThreadCpuTime - deserializeStartCpuTime
     } else 0L
 
+    // rdd.iterator(): 读取得到 Iterator
     func(context, rdd.iterator(partition, context))
   }
 

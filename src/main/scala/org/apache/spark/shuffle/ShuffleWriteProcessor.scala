@@ -29,6 +29,7 @@ import org.apache.spark.scheduler.MapStatus
  * 用于自定义 shuffle 写入过程的接口.
  * Driver 创建一个 ShuffleWriteProcessor 并将其放入 ShuffleDependency 中, Executors 在每个 ShuffleMapTask 中使用它.
  */
+// Shuffle Write Processor
 private[spark] class ShuffleWriteProcessor extends Serializable with Logging {
 
   /**
@@ -54,12 +55,16 @@ private[spark] class ShuffleWriteProcessor extends Serializable with Logging {
              context: TaskContext,
              partition: Partition): MapStatus = {
 
-    // 获取 ShuffleWriter
+    // 获取 Writer (ShuffleWriter)
     var writer: ShuffleWriter[Any, Any] = null
     try {
+
+      // 获取 ShuffleManager - SortShuffleManager
       val manager = SparkEnv.get.shuffleManager
-      // 获取 ShuffleWriter
+
+      // 获取 Writer (ShuffleWriter: UnsafeShuffleWriter / BypassMergeSortShuffleWriter / SortShuffleWriter)
       writer = manager.getWriter[Any, Any](
+        // dep.shuffleHandle: ShuffleDependency (BypassMergeSortShuffleHandle / SerializedShuffleHandle / BaseShuffleHandle)
         dep.shuffleHandle,
         mapId,
         context,

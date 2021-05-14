@@ -118,7 +118,10 @@ abstract class RDD[T: ClassTag](
   /**
    * :: DeveloperApi ::
    * Implemented by subclasses to compute a given partition.
+   *
+   * 由子类实现以计算给定的 Partition (分区).
    */
+  // 读取得到 Iterator
   @DeveloperApi
   def compute(split: Partition, context: TaskContext): Iterator[T]
 
@@ -330,6 +333,9 @@ abstract class RDD[T: ClassTag](
    * Internal method to this RDD; will read from cache if applicable, or otherwise compute it.
    * This should ''not'' be called by users directly, but is available for implementers of custom
    * subclasses of RDD.
+   *
+   * 该 RDD 的内部方法: 将从缓存中读取 (如果适用), 或者进行其他计算.
+   * 用户 ''不应该'' 直接调用此方法, 但可用于 RDD 的自定义子类的实现者.
    */
   final def iterator(split: Partition, context: TaskContext): Iterator[T] = {
     if (storageLevel != StorageLevel.NONE) {
@@ -365,6 +371,8 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Compute an RDD partition or read it from a checkpoint if the RDD is checkpointing.
+   *
+   * 如果 RDD 是 Checkpoint, 则计算 RDD 分区或从 Checkpoint 读取它.
    */
   private[spark] def computeOrReadCheckpoint(split: Partition, context: TaskContext): Iterator[T] =
   {
@@ -377,6 +385,8 @@ abstract class RDD[T: ClassTag](
 
   /**
    * Gets or computes an RDD partition. Used by RDD.iterator() when an RDD is cached.
+   *
+   * 获取或计算 RDD 分区. RDD 缓存时由 RDD.iterator() 使用.
    */
   private[spark] def getOrCompute(partition: Partition, context: TaskContext): Iterator[T] = {
     val blockId = RDDBlockId(id, partition.index)

@@ -297,7 +297,7 @@ private[spark] class IndexShuffleBlockResolver(
    * 注意: 如果使用现有索引文件, 则将更新 `lengths` 以匹配现有索引文件.
    */
   // 写入索引文件和数据文件并提交
-  // 写入临时文件成功后改名成正式文件
+  // 先写入临时文件, 成功后改名成正式文件
   def writeIndexFileAndCommit(
                                shuffleId: Int,
                                mapId: Long,

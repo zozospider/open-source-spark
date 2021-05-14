@@ -28,7 +28,14 @@ import org.apache.spark.storage.BlockManagerId
 /**
  * :: DeveloperApi ::
  * Base class for dependencies.
+ *
+ * 依赖关系的基类.
  */
+// 其实现为:
+// - NarrowDependency
+// - OneToOneDependency
+// - ShuffleDependency
+// - RangeDependency
 @DeveloperApi
 abstract class Dependency[T] extends Serializable {
   def rdd: RDD[T]
@@ -43,6 +50,7 @@ abstract class Dependency[T] extends Serializable {
  * 依赖关系的基类, 其中子 RDD 的每个分区都依赖于父 RDD 的少量分区. 窄依赖关系允许流水线执行.
  */
 // 窄依赖
+// 实现 Dependency
 @DeveloperApi
 abstract class NarrowDependency[T](_rdd: RDD[T]) extends Dependency[T] {
   /**
@@ -74,6 +82,8 @@ abstract class NarrowDependency[T](_rdd: RDD[T]) extends Dependency[T] {
  * @param mapSideCombine whether to perform partial aggregation (also known as map-side combine)
  * @param shuffleWriterProcessor the processor to control the write behavior in ShuffleMapTask
  */
+// Shuffle 依赖
+// 实现 Dependency
 @DeveloperApi
 class ShuffleDependency[K: ClassTag, V: ClassTag, C: ClassTag](
                                                                 @transient private val _rdd: RDD[_ <: Product2[K, V]],
@@ -99,6 +109,8 @@ class ShuffleDependency[K: ClassTag, V: ClassTag, C: ClassTag](
 
   val shuffleId: Int = _rdd.context.newShuffleId()
 
+  // ShuffleDependency 的 ShuffleHandle, 通过 ShuffleManager.registerShuffle() 获取
+  // ShuffleHandle: BypassMergeSortShuffleHandle / SerializedShuffleHandle / BaseShuffleHandle
   val shuffleHandle: ShuffleHandle = _rdd.context.env.shuffleManager.registerShuffle(
     shuffleId, this)
 
@@ -127,6 +139,8 @@ class ShuffleDependency[K: ClassTag, V: ClassTag, C: ClassTag](
  *
  * 表示父 RDD 和子 RDD 分区之间的一对一依赖关系.
  */
+// 一对一依赖
+// 实现 Dependency
 @DeveloperApi
 class OneToOneDependency[T](rdd: RDD[T]) extends NarrowDependency[T](rdd) {
   override def getParents(partitionId: Int): List[Int] = List(partitionId)
@@ -136,11 +150,15 @@ class OneToOneDependency[T](rdd: RDD[T]) extends NarrowDependency[T](rdd) {
 /**
  * :: DeveloperApi ::
  * Represents a one-to-one dependency between ranges of partitions in the parent and child RDDs.
+ *
+ * 表示父 RDD 和子 RDD 中分区范围之间的一对一依赖关系.
+ *
  * @param rdd the parent RDD
  * @param inStart the start of the range in the parent RDD
  * @param outStart the start of the range in the child RDD
  * @param length the length of the range
  */
+// 实现 Dependency
 @DeveloperApi
 class RangeDependency[T](rdd: RDD[T], inStart: Int, outStart: Int, length: Int)
   extends NarrowDependency[T](rdd) {

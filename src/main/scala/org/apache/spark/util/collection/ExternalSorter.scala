@@ -168,6 +168,8 @@ private[spark] class ExternalSorter[K, V, C](
   // Data structures to store in-memory objects before we spill. Depending on whether we have an
   // Aggregator set, we either put objects into an AppendOnlyMap where we combine them, or we
   // store them in an array buffer.
+  // 在溢出之前用于存储内存对象的数据结构.
+  // 根据是否设置了 Aggregator, 我们可以将对象放入 AppendOnlyMap 中以将它们组合在一起, 或者将它们存储在数组缓冲区中.
   @volatile private var map = new PartitionedAppendOnlyMap[K, C]
   @volatile private var buffer = new PartitionedPairBuffer[K, C]
 
@@ -224,25 +226,41 @@ private[spark] class ExternalSorter[K, V, C](
     val shouldCombine = aggregator.isDefined
 
     if (shouldCombine) {
+      // 有预聚合
+
       // Combine values in-memory first using our AppendOnlyMap
+      // 首先使用我们的 AppendOnlyMap 在内存中合并 values
       val mergeValue = aggregator.get.mergeValue
       val createCombiner = aggregator.get.createCombiner
       var kv: Product2[K, V] = null
+
+      // 更新 value
       val update = (hadValue: Boolean, oldValue: C) => {
         if (hadValue) mergeValue(oldValue, kv._2) else createCombiner(kv._2)
       }
       while (records.hasNext) {
         addElementsRead()
+
+        // 更新聚合后的数据到内存 (使用 Map 结构)
         kv = records.next()
         map.changeValue((getPartition(kv._1), kv._1), update)
+
+        // 可能要溢写磁盘
         maybeSpillCollection(usingMap = true)
       }
     } else {
+      // 没有预聚合
+
       // Stick values into our buffer
+      // 将 values 放入我们的 buffer
       while (records.hasNext) {
         addElementsRead()
+
+        // 直接放入 buffer (使用 Buffer 结构)
         val kv = records.next()
         buffer.insert(getPartition(kv._1), kv._1, kv._2.asInstanceOf[C])
+
+        // 可能要溢写磁盘
         maybeSpillCollection(usingMap = false)
       }
     }
@@ -251,18 +269,34 @@ private[spark] class ExternalSorter[K, V, C](
   /**
    * Spill the current in-memory collection to disk if needed.
    *
+   * 如果需要, 将当前的内存收集溢出到磁盘上.
+   *
    * @param usingMap whether we're using a map or buffer as our current in-memory collection
+   *
+   *
+   * 如果需要, 将当前的内存收集溢出到磁盘上.
+   *
+   * @param usingMap 我们是使用 Map 还是 Buffer 作为当前的内存中集合
    */
+  // 可能要溢写磁盘
   private def maybeSpillCollection(usingMap: Boolean): Unit = {
     var estimatedSize = 0L
     if (usingMap) {
+      // Map 结构
+
+      // 估计 Collection 的当前大小 (以字节为单位). O(1) time.
       estimatedSize = map.estimateSize()
       if (maybeSpill(map, estimatedSize)) {
+        // 重新创建 Map
         map = new PartitionedAppendOnlyMap[K, C]
       }
     } else {
+      // Buffer 结构
+
+      // 估计 Collection 的当前大小 (以字节为单位). O(1) time.
       estimatedSize = buffer.estimateSize()
       if (maybeSpill(buffer, estimatedSize)) {
+        // 重新创建 Buffer
         buffer = new PartitionedPairBuffer[K, C]
       }
     }

@@ -30,7 +30,8 @@ private[spark] class ShuffledRDDPartition(val idx: Int) extends Partition {
 /**
  * :: DeveloperApi ::
  * The resulting RDD from a shuffle (e.g. repartitioning of data).
- * shuffle 产生的 RDD (例如, 重新分区数据).
+ *
+ * Shuffle 产生的 RDD (例如, 重新分区数据).
  *
  * @param prev the parent RDD.
  * @param part the partitioner used to partition the RDD
@@ -104,9 +105,12 @@ class ShuffledRDD[K: ClassTag, V: ClassTag, C: ClassTag](
     tracker.getPreferredLocationsForShuffle(dep, partition.index)
   }
 
+  // 读取得到 Iterator
   override def compute(split: Partition, context: TaskContext): Iterator[(K, C)] = {
     val dep = dependencies.head.asInstanceOf[ShuffleDependency[K, V, C]]
     val metrics = context.taskMetrics().createTempShuffleReadMetrics()
+
+    // 通过 ShuffleReader 读取得到 Iterator
     SparkEnv.get.shuffleManager.getReader(
       dep.shuffleHandle, split.index, split.index + 1, context, metrics)
       .read()
