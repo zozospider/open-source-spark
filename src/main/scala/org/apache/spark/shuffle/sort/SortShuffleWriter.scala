@@ -66,6 +66,10 @@ private[spark] class SortShuffleWriter[K, V, C](
       new ExternalSorter[K, V, V](
         context, aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
     }
+
+    // 将所有 Records 插入到内存:
+    // 1. 如果有预聚合, 则进行聚合, 更新到内存 (可能溢写磁盘 (写到临时文件中))
+    // 2. 如果没有预聚合, 则更新到内存 (可能溢写磁盘 (写到临时文件中))
     sorter.insertAll(records)
 
     // Don't bother including the time to open the merged output file in the shuffle write time,
@@ -78,6 +82,8 @@ private[spark] class SortShuffleWriter[K, V, C](
     // 写出分区 Map Output 信息
     val mapOutputWriter = shuffleExecutorComponents.createMapOutputWriter(
       dep.shuffleId, mapId, dep.partitioner.numPartitions)
+
+    // 合并
     sorter.writePartitionedMapOutput(dep.shuffleId, mapId, mapOutputWriter)
 
     // 写入索引文件和数据文件并提交

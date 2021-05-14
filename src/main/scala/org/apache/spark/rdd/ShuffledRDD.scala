@@ -111,6 +111,7 @@ class ShuffledRDD[K: ClassTag, V: ClassTag, C: ClassTag](
     val metrics = context.taskMetrics().createTempShuffleReadMetrics()
 
     // 通过 ShuffleReader 读取得到 Iterator
+    // 实际调用的是 BlockStoreShuffleReader.read()
     SparkEnv.get.shuffleManager.getReader(
       dep.shuffleHandle, split.index, split.index + 1, context, metrics)
       .read()

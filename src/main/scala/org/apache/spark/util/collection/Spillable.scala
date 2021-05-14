@@ -34,7 +34,13 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    * Spills the current in-memory collection to disk, and releases the memory.
    *
    * @param collection collection to spill to disk
+   *
+   *
+   * 将当前的内存 Collection 溢写到磁盘上, 然后释放内存.
+   *
+   * @param collection 要溢写到磁盘的 Collection
    */
+  // 将 Collection 溢写到磁盘
   protected def spill(collection: C): Unit
 
   /**
@@ -88,27 +94,42 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    * @param currentMemory Collection 的估计大小 (以字节为单位)
    * @return 如果 `collection` 被溢写到磁盘, 则为 true; 否则为 false
    */
+  // 可能要溢写磁盘 (写到临时文件中)
   protected def maybeSpill(collection: C, currentMemory: Long): Boolean = {
     var shouldSpill = false
     if (elementsRead % 32 == 0 && currentMemory >= myMemoryThreshold) {
-      // 预估 Collection 的内存大小 >= 5M
+      // 1.
+      // 如果 elementsRead % 32 == 0 && 预估 Collection 的内存大小 >= 5M, 则尝试申请新的资源
+      // 如果申请的资源不足以容纳数据, 则溢写磁盘
 
       // Claim up to double our current memory from the shuffle memory pool
+      // 要求从 Shuffle 内存池中将我们当前的存储空间增加一倍
       val amountToRequest = 2 * currentMemory - myMemoryThreshold
       val granted = acquireMemory(amountToRequest)
       myMemoryThreshold += granted
       // If we were granted too little memory to grow further (either tryToAcquire returned 0,
       // or we already had more memory than myMemoryThreshold), spill the current collection
+      // 如果授予我们的内存太少而无法进一步增长 (tryToAcquire 返回的值为 0, 或者我们已经拥有的内存大于 myMemoryThreshold), 请溢出当前 Collection
       shouldSpill = currentMemory >= myMemoryThreshold
     }
+
+    // 2.
+    // 如果读取的元素 > 强制溢写磁盘的配置 spark.shuffle.spill.numElementsForceSpillThreshold (默认为 Integer.MAX_VALUE)
+    // 则溢写磁盘
     shouldSpill = shouldSpill || _elementsRead > numElementsForceSpillThreshold
+
     // Actually spill
+    // 实际溢写
     if (shouldSpill) {
       _spillCount += 1
       logSpillage(currentMemory)
+
+      // 将 Collection 溢写到磁盘 (写到临时文件中) (具体实现为 ExternalSorter.spill())
       spill(collection)
       _elementsRead = 0
       _memoryBytesSpilled += currentMemory
+
+      // 释放内存
       releaseMemory()
     }
     shouldSpill
@@ -141,7 +162,10 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
 
   /**
    * Release our memory back to the execution pool so that other tasks can grab it.
+   *
+   * 将我们的内存释放回 Execution 池, 以便其他任务可以抢占它.
    */
+  // 释放内存
   def releaseMemory(): Unit = {
     freeMemory(myMemoryThreshold - initialMemoryThreshold)
     myMemoryThreshold = initialMemoryThreshold

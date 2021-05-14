@@ -121,7 +121,7 @@ public class LocalDiskShuffleMapOutputWriter implements ShuffleMapOutputWriter {
         log.debug("Writing shuffle index file for mapId {} with length {}", mapId,
                 partitionLengths.length);
 
-        // 写入索引文件和数据文件并提交
+        // 写入索引文件和数据文件并提交 (先写入临时文件, 成功后改名成正式文件)
         blockResolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, resolvedTmp);
 
         return MapOutputCommitMessage.of(partitionLengths);
