@@ -94,13 +94,15 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
    * @param currentMemory Collection 的估计大小 (以字节为单位)
    * @return 如果 `collection` 被溢写到磁盘, 则为 true; 否则为 false
    */
-  // 可能要溢写磁盘 (写到临时文件中)
+  // 可能要溢写磁盘 (对 Collection 进行排序后溢写到磁盘 (写到临时文件中))
   protected def maybeSpill(collection: C, currentMemory: Long): Boolean = {
     var shouldSpill = false
     if (elementsRead % 32 == 0 && currentMemory >= myMemoryThreshold) {
       // 1.
-      // 如果 elementsRead % 32 == 0 && 预估 Collection 的内存大小 >= 5M, 则尝试申请新的资源
-      // 如果申请的资源不足以容纳数据, 则溢写磁盘
+      // 如果读取的记录数是 32 的倍数 && 预估 Collection 的内存大小 >= 5M (可配置),
+      // 则尝试申请新的资源, 申请资源大小为: (2 * 预估 Collection 的内存大小 - 5M)
+
+      // 如果申请的资源还是不足以容纳数据, 则确认溢写磁盘
 
       // Claim up to double our current memory from the shuffle memory pool
       // 要求从 Shuffle 内存池中将我们当前的存储空间增加一倍
@@ -114,8 +116,8 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
     }
 
     // 2.
-    // 如果读取的元素 > 强制溢写磁盘的配置 spark.shuffle.spill.numElementsForceSpillThreshold (默认为 Integer.MAX_VALUE)
-    // 则溢写磁盘
+    // 如果读取的记录数 > Integer.MAX_VALUE (强制溢写磁盘的配置)
+    // 则确认溢写磁盘
     shouldSpill = shouldSpill || _elementsRead > numElementsForceSpillThreshold
 
     // Actually spill
@@ -124,7 +126,7 @@ private[spark] abstract class Spillable[C](taskMemoryManager: TaskMemoryManager)
       _spillCount += 1
       logSpillage(currentMemory)
 
-      // 将 Collection 溢写到磁盘 (写到临时文件中) (具体实现为 ExternalSorter.spill())
+      // 对 Collection 进行排序后溢写到磁盘 (写到临时文件中) (具体实现为 ExternalSorter.spill())
       spill(collection)
       _elementsRead = 0
       _memoryBytesSpilled += currentMemory

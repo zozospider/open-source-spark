@@ -54,6 +54,7 @@ private[spark] class SortShuffleWriter[K, V, C](
   override def write(records: Iterator[Product2[K, V]]): Unit = {
 
     // 获取 ExternalSorter (排序器)
+    // 如果有 Map 端预聚合, 就传入 aggregator 和 keyOrdering, 否则不传入
     sorter = if (dep.mapSideCombine) {
       new ExternalSorter[K, V, C](
         context, dep.aggregator, Some(dep.partitioner), dep.keyOrdering, dep.serializer)
@@ -67,9 +68,9 @@ private[spark] class SortShuffleWriter[K, V, C](
         context, aggregator = None, Some(dep.partitioner), ordering = None, dep.serializer)
     }
 
-    // 将所有 Records 插入到内存:
-    // 1. 如果有预聚合, 则进行聚合, 更新到内存 (可能溢写磁盘 (写到临时文件中))
-    // 2. 如果没有预聚合, 则更新到内存 (可能溢写磁盘 (写到临时文件中))
+    // 将所有 Records 在内存中进行排序 (可能溢写到磁盘 (写到临时文件中)):
+    // 1. 如果有 Map 端预聚合, 则进行聚合, 更新到内存 (可能要溢写磁盘 (对 Collection 进行排序后溢写到磁盘 (写到临时文件中)))
+    // 2. 如果没有 Map 端预聚合, 则更新到内存 (可能要溢写磁盘 (对 Collection 进行排序后溢写到磁盘 (写到临时文件中)))
     sorter.insertAll(records)
 
     // Don't bother including the time to open the merged output file in the shuffle write time,
@@ -83,7 +84,7 @@ private[spark] class SortShuffleWriter[K, V, C](
     val mapOutputWriter = shuffleExecutorComponents.createMapOutputWriter(
       dep.shuffleId, mapId, dep.partitioner.numPartitions)
 
-    // 合并
+    // 排序合并内存和临时文件
     sorter.writePartitionedMapOutput(dep.shuffleId, mapId, mapOutputWriter)
 
     // 写入索引文件和数据文件并提交
@@ -118,17 +119,17 @@ private[spark] class SortShuffleWriter[K, V, C](
 
 private[spark] object SortShuffleWriter {
 
-  // 1. 不能使用预聚合
-  // 2. 如果下游的分区数量 <= 200 (可配)
+  // 1. 没有 Map 端预聚合
+  // 2. 下游的分区数量 <= 200 (可配)
   def shouldBypassMergeSort(conf: SparkConf, dep: ShuffleDependency[_, _, _]): Boolean = {
     // We cannot bypass sorting if we need to do map-side aggregation.
     // 如果需要进行 Map 端聚合, 则无法绕过排序.
     if (dep.mapSideCombine) {
-      // 1. 不能使用预聚合
+      // 1. 没有 Map 端预聚合
 
       false
     } else {
-      // 2. 如果下游的分区数量 <= 200 (可配)
+      // 2. 下游的分区数量 <= 200 (可配)
       // spark.shuffle.sort.bypassMergeThreshold 默认 200
 
       val bypassMergeThreshold: Int = conf.get(config.SHUFFLE_SORT_BYPASS_MERGE_THRESHOLD)

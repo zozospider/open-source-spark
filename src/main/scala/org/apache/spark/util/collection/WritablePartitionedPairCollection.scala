@@ -54,6 +54,7 @@ private[spark] trait WritablePartitionedPairCollection[K, V] {
    * 遍历数据并写出元素, 而不是返回它们. 记录按其分区 ID 的顺序返回, 然后按给定的比较器返回.
    * 这可能会破坏基础 Collection.
    */
+  // 根据给定的 Sorter 进行排序, 返回排序结果的 Iterator
   def destructiveSortedWritablePartitionedIterator(keyComparator: Option[Comparator[K]])
   : WritablePartitionedIterator = {
     val it = partitionedDestructiveSortedIterator(keyComparator)
