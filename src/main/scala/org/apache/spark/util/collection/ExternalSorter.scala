@@ -951,7 +951,7 @@ private[spark] class ExternalSorter[K, V, C](
         nextPartitionId = partitionId + 1
       }
     } else {
-      // 如果发生溢写, 将溢写文件和缓存数据进行归并排序，排序完成后按照分区依次写入ShufflePartitionPairsWriter
+      // 如果发生溢写, 将溢写文件和缓存数据 (Collection) 进行归并排序, 排序完成后按照分区依次写入 ShufflePartitionPairsWriter
       // partitionedIterator(): 这里会进行归并排序
 
       // We must perform merge-sort; get an iterator by partition and write everything directly.

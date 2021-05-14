@@ -84,10 +84,10 @@ private[spark] class SortShuffleWriter[K, V, C](
     val mapOutputWriter = shuffleExecutorComponents.createMapOutputWriter(
       dep.shuffleId, mapId, dep.partitioner.numPartitions)
 
-    // 排序合并内存和临时文件
+    // 排序合并内存和临时文件, 将排序后的数据写入 mapOutputWriter (ShufflePartitionPairsWriter)
     sorter.writePartitionedMapOutput(dep.shuffleId, mapId, mapOutputWriter)
 
-    // 写入索引文件和数据文件并提交
+    // mapOutputWriter (ShufflePartitionPairsWriter) 写入索引文件和数据文件并提交
     val partitionLengths = mapOutputWriter.commitAllPartitions().getPartitionLengths
 
     mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths, mapId)
